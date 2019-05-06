@@ -1,0 +1,51 @@
+{% extends "base_template.html" %}
+{% block title %}Home{% endblock %}
+{% block head %}
+    {{ super() }}
+    <link rel="stylesheet" href="/static/multiselect/css/select-beauty.css">
+    <script type="text/javascript" src="/static/multiselect/js/select-beauty.js"></script>
+
+{% endblock %}
+{% block body %}
+    <form>
+        <div class="form-group">
+            <label for="name" class="col-sm-2 control-label">Name:</label>
+            <div class="col-sm-10">
+                <input type="text" class="form-control" id="name" placeholder="Bot name">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="predefined_knowledge" class="col-sm-2 control-label">Knowledge</label>
+            <div class="col-sm-10">
+                <select name="predefined_knowledge" id="predefined_knowledge" class="form-control">
+                    <option value="ai" icon="iw-way">AI</option>
+                    <option value="profile" icon="iw-crane">Profile</option>
+                    <option value="computers" icon="iw-scope">Computers</option>
+                    <option value="emotion" icon="iw-excavator">Emotion</option>
+                    <option value="food" icon="iw-key">Food</option>
+                    <option value="gossip" icon="iw-warning">Gossip</option>
+                    <option value="greetings" icon="iw-bag">Greetings</option>
+                    <option value="health" icon="iw-dozer">Health</option>
+                    <option value="history" icon="iw-pickup">History</option>
+                    <option value="humor" icon="iw-hammer">Humor</option>
+                    <option value="literature" icon="iw-drill">Literature</option>
+                    <option value="money" icon="iw-note">Money</option>
+                    <option value="movies" icon="iw-head">Movies</option>
+                    <option value="politics" icon="iw-hammer-o">Politics</option>
+                    <option value="psychology" icon="iw-hat">Psychology</option>
+                    <option value="science" icon="iw-building">Science</option>
+                    <option value="sports" icon="iw-tools">Sports</option>
+                    <option value="trivia" icon="iw-pickup">trivia</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group">
+            <div class="col-sm-offset-2 col-sm-10">
+                <button type="button" onclick="create_bot()" class="btn btn-primary col-sm-1">Create</button>
+            </div>
+        </div>
+    </form>
+{% endblock %}
+{% block scripts %}
+    <script type="text/javascript" src="/static/editbot/bot.js"></script>
+{% endblock %}
