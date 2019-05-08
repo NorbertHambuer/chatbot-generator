@@ -281,14 +281,14 @@ def logout():
 #         return {'message': 'Something went wrong'}, 500
 
 
-@jwt.unauthorized_loader
-def unauthorized_loader(msg):
-    return render_template('register/register.html')
-
-
-@jwt.expired_token_loader
-def expired_token(msg):
-    return render_template('register/register.html')
+# @jwt.unauthorized_loader
+# def unauthorized_loader(msg):
+#     return render_template('register/register.html')
+#
+#
+# @jwt.expired_token_loader
+# def expired_token(msg):
+#     return render_template('register/register.html')
 
 
 @app.route('/addedit_bot', methods=['GET'])
@@ -371,6 +371,15 @@ def get_response():
 @app.route('/')
 def index():
     return render_template('register/register.html')
+
+
+@app.route('/get_user_bots', methods=['GET'])
+@jwt_required
+def get_user_bots():
+    response = jsonify({'some': 'data'})
+    response.headers.add('Access-Control-Allow-Origin', "http://localhost:3000")
+    response.headers.add('Access-Control-Allow-Credentials', "true")
+    return response
 
 
 @app.route('/user_safe', methods=['GET'])
