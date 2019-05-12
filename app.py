@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
 from datetime import date
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from json import dumps, loads
 from passlib.hash import pbkdf2_sha256 as sha256
 from flask_jwt_extended import (JWTManager, jwt_required, create_access_token,
@@ -118,6 +118,12 @@ class Bots(db.Model):
     def get_one_bot(id):
         return Bots.query.get(id)
 
+    def to_json(self):
+        return {
+            'id': self.id,
+            'name': self.name
+        }
+
 
 class Tags(db.Model):
     __tablename__ = "tags"
@@ -206,6 +212,7 @@ def register_user():
 
 
 @app.route("/login", methods=['POST'])
+#@cross_origin()
 def login_user():
     try:
         current_user = Users.get_user_by_name(request.values['username'])
@@ -224,6 +231,8 @@ def login_user():
 
             set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)
+
+            response.headers.add("Access-Control-Allow-Credentials", "true")
 
             return response, 200
         else:
@@ -372,14 +381,17 @@ def get_response():
 def index():
     return render_template('register/register.html')
 
-
 @app.route('/get_user_bots', methods=['GET'])
 @jwt_required
 def get_user_bots():
-    response = jsonify({'some': 'data'})
-    response.headers.add('Access-Control-Allow-Origin', "http://localhost:3000")
-    response.headers.add('Access-Control-Allow-Credentials', "true")
-    return response
+    if 'user_id' in request.args:
+        userBots = Bots.get_user_bots(request.values['user_id'])
+
+        response = jsonify(bots=[bot.to_json() for bot in userBots])
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+        return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
 
 
 @app.route('/user_safe', methods=['GET'])
