@@ -22,3 +22,22 @@ function get_response() {
        }
    });
 }
+
+
+function build_docker() {
+
+   $.ajax({
+       method: 'GET',
+       url: 'build_docker_img',
+       dataType: 'json',
+       beforeSend: function (xhr) {   //Include the bearer token in header
+           xhr.setRequestHeader("X-CSRF-TOKEN", getCookie("csrf_access_token"));
+       },
+       success: function (data) {
+           console.log(data);
+       },
+       error: function (error) {
+           console.log(error);
+       }
+   });
+}

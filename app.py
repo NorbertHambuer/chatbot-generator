@@ -10,10 +10,12 @@ from flask_jwt_extended import (JWTManager, jwt_required, create_access_token,
                                 jwt_refresh_token_required, create_refresh_token,
                                 get_jwt_identity, set_access_cookies,
                                 set_refresh_cookies, unset_jwt_cookies)
-from os import path, makedirs
+from os import path, makedirs, remove
 from copy import copy
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer
+import docker
+import subprocess
 
 app = Flask(__name__)
 
@@ -29,6 +31,8 @@ app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access', 'refresh']
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
 app.config['JWT_COOKIE_SECURE'] = False
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
+
+app.config['UPLOAD_FOLDER'] = 'tmps'
 
 cors = CORS(app)
 
@@ -113,6 +117,10 @@ class Bots(db.Model):
     @staticmethod
     def get_user_bots(user_id):
         return Bots.query.filter_by(user_id=user_id)
+
+    @staticmethod
+    def get_bot_by_id(bot_id):
+        return Bots.query.filter_by(id=bot_id).first()
 
     @staticmethod
     def get_one_bot(id):
@@ -212,7 +220,7 @@ def register_user():
 
 
 @app.route("/login", methods=['POST'])
-#@cross_origin()
+# @cross_origin()
 def login_user():
     try:
         current_user = Users.get_user_by_name(request.values['username'])
@@ -262,10 +270,10 @@ def logout():
     return resp, 200
 
 
-# @jwt.token_in_blacklist_loader
-# def check_if_token_in_blacklist(decrypted_token):
-#     jti = decrypted_token['jti']
-#     return RevokedTokenModel.is_jti_blacklisted(jti)
+@jwt.token_in_blacklist_loader
+def check_if_token_in_blacklist(decrypted_token):
+    jti = decrypted_token['jti']
+    return RevokedTokenModel.is_jti_blacklisted(jti)
 
 
 # @jwt_required
@@ -290,14 +298,14 @@ def logout():
 #         return {'message': 'Something went wrong'}, 500
 
 
-# @jwt.unauthorized_loader
-# def unauthorized_loader(msg):
-#     return render_template('register/register.html')
-#
-#
-# @jwt.expired_token_loader
-# def expired_token(msg):
-#     return render_template('register/register.html')
+@jwt.unauthorized_loader
+def unauthorized_loader(msg):
+    return render_template('register/register.html')
+
+
+@jwt.expired_token_loader
+def expired_token(msg):
+    return render_template('register/register.html')
 
 
 @app.route('/addedit_bot', methods=['GET'])
@@ -346,40 +354,66 @@ def create_bot():
             '{0}.{1}'.format(db_user.id, name): copy(new_chatterbot)
         })
 
+        yml_files = request.files.getlist("yml_files")
+        csv_files = request.files.getlist("yml_files")
+
+        if not path.exists('tmps/{0}'.format(db_user.id)):
+            makedirs('tmps/{0}'.format(db_user.id))
+
+        if yml_files:
+            for file in yml_files:
+                filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                file.save(filepath)
+                trainer.train(filepath)
+                remove(filepath)
+
+        if csv_files:
+            for file in csv_files:
+                filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                file.save(filepath)
+                trainer.train(filepath)
+                remove(filepath)
+
         return jsonify({'message': '{} was created!'.format(name)}), 200
-    except:
-        return {'message': 'Something went wrong'}, 500
+    except Exception as ex:
+        print(ex)
+        return jsonify({'Error': '{}'}), 200
 
 
 @app.route('/get_response', methods=['GET'])
 @jwt_required
 def get_response():
-    if 'bot_name' in request.args and 'user_id' in request.args:
+    if 'bot_id' in request.args and 'user_id' in request.args:
         print(active_bots)
         try:
-            if not request.values['bot_name'] in active_bots:
-                chatterbot = ChatBot(request.values['bot_name'], storage_adapter="chatterbot.storage.SQLStorageAdapter",
+            bot_name = Bots.get_bot_by_id(request.values['bot_id']).name
+
+            if not '{0}.{1}'.format(request.values['user_id'], bot_name) in active_bots:
+                chatterbot = ChatBot(bot_name, storage_adapter="chatterbot.storage.SQLStorageAdapter",
                                      database_uri="sqlite:///bots_db/{0}/{1}.sqlite3".format(request.values['user_id'],
-                                                                                             request.values[
-                                                                                                 'bot_name']))
+                                                                                             bot_name))
                 active_bots.update({
-                    '{0}.{1}'.format(request.values['user_id'], request.values['bot_name']): copy(chatterbot)
+                    '{0}.{1}'.format(request.values['user_id'], bot_name): copy(chatterbot)
                 })
+
                 response = chatterbot.get_response(request.values['question'])
             else:
                 response = active_bots[
-                    '{0}.{1}'.format(request.values['user_id'], request.values['bot_name'])].get_response(
+                    '{0}.{1}'.format(request.values['user_id'], bot_name)].get_response(
                     request.values['question'])
 
-            return jsonify({'response': '{}'.format(response)}), 200
+            response = jsonify({'answer': '{}'.format(response)})
+            response.headers.add("Access-Control-Allow-Credentials", "true")
+            return response, 200
         except Exception as ex:
             print(ex)
-            return "Task not found!"
+            return "Error geting the response!"
 
 
 @app.route('/')
 def index():
     return render_template('register/register.html')
+
 
 @app.route('/get_user_bots', methods=['GET'])
 @jwt_required
@@ -397,6 +431,18 @@ def get_user_bots():
 @app.route('/user_safe', methods=['GET'])
 @jwt_required
 def protected():
+    username = "admin sure"
+    return jsonify({'hello': 'from {}'.format(username)}), 200
+
+
+@app.route('/build_docker_img', methods=['GET'])
+@jwt_required
+def build_docker_image():
+    client = docker.from_env()
+    new_image = client.images.build(path="./docker_template", tag='chatbot')
+
+    ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
+    print(ret)
     username = "admin sure"
     return jsonify({'hello': 'from {}'.format(username)}), 200
 
