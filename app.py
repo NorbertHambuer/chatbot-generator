@@ -9,13 +9,14 @@ from passlib.hash import pbkdf2_sha256 as sha256
 from flask_jwt_extended import (JWTManager, jwt_required, create_access_token,
                                 jwt_refresh_token_required, create_refresh_token,
                                 get_jwt_identity, set_access_cookies,
-                                set_refresh_cookies, unset_jwt_cookies)
+                                set_refresh_cookies, unset_jwt_cookies, get_csrf_token)
 from os import path, makedirs, remove
 from copy import copy
 from chatterbot import ChatBot
-from chatterbot.trainers import ChatterBotCorpusTrainer
+from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
 import docker
 import subprocess
+import csv
 
 app = Flask(__name__)
 
@@ -28,11 +29,13 @@ app.config['JWT_BLACKLIST_ENABLED'] = False
 
 app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access', 'refresh']
 
+app.config['JWT_ACCESS_COOKIE_PATH'] = '/'
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
 app.config['JWT_COOKIE_SECURE'] = False
 app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 
 app.config['UPLOAD_FOLDER'] = 'tmps'
+# app.config['CSRF_COOKIE_NAME '] = "XSRF-TOKEN";
 
 cors = CORS(app)
 
@@ -189,6 +192,14 @@ def get_user():
         return str(ex)
 
 
+@app.after_request
+def after_request(response):
+    response.headers.add("Access-Control-Allow-Credentials", "true")
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+
 @app.route("/register", methods=['POST'])
 def register_user():
     try:
@@ -234,13 +245,14 @@ def login_user():
 
             response = jsonify({
                 'message': 'Logged in as {}'.format(current_user.username),
-                'user_id': current_user.id
+                'user_id': current_user.id,
+                'csrf_token': get_csrf_token(access_token)
             })
 
             set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)
 
-            response.headers.add("Access-Control-Allow-Credentials", "true")
+            #response.headers.add("Access-Control-Allow-Credentials", "true")
 
             return response, 200
         else:
@@ -298,14 +310,14 @@ def check_if_token_in_blacklist(decrypted_token):
 #         return {'message': 'Something went wrong'}, 500
 
 
-@jwt.unauthorized_loader
-def unauthorized_loader(msg):
-    return render_template('register/register.html')
-
-
-@jwt.expired_token_loader
-def expired_token(msg):
-    return render_template('register/register.html')
+# @jwt.unauthorized_loader
+# def unauthorized_loader(msg):
+#     return render_template('register/register.html')
+#
+#
+# @jwt.expired_token_loader
+# def expired_token(msg):
+#     return render_template('register/register.html')
 
 
 @app.route('/addedit_bot', methods=['GET'])
@@ -326,7 +338,8 @@ def generate_tag(tag_name, bot_id):
 def create_bot():
     try:
         name = request.values['name']
-        knowledge = loads(request.values['knowledge'])
+        #knowledge = loads(request.values['knowledge'])
+        knowledge = request.values['knowledge'].split(",") if request.values['knowledge'] != '' else []
         db_user = Users.get_user_by_name(get_jwt_identity())
 
         new_bot = Bots(
@@ -336,8 +349,8 @@ def create_bot():
 
         new_bot.save()
 
-        tags_list = [generate_tag(tag, new_bot.id) for tag in knowledge]
-        corpus_list = ['chatterbot.corpus.english.{}'.format(tag) for tag in knowledge]
+        tags_list = [generate_tag(tag, new_bot.id) for tag in knowledge] if knowledge else []
+        corpus_list = ['chatterbot.corpus.english.{}'.format(tag) for tag in knowledge] if knowledge else []
         Tags.insert_tags(tags_list)
 
         if not path.exists('bots_db/{0}'.format(db_user.id)):
@@ -346,16 +359,18 @@ def create_bot():
         new_chatterbot = ChatBot(name, storage_adapter="chatterbot.storage.SQLStorageAdapter",
                                  database_uri="sqlite:///bots_db/{0}/{1}.sqlite3".format(db_user.id, name))
         trainer = ChatterBotCorpusTrainer(new_chatterbot)
-        trainer.train(
-            *corpus_list
-        )
+
+        if corpus_list:
+            trainer.train(
+                *corpus_list
+            )
 
         active_bots.update({
             '{0}.{1}'.format(db_user.id, name): copy(new_chatterbot)
         })
 
         yml_files = request.files.getlist("yml_files")
-        csv_files = request.files.getlist("yml_files")
+        csv_files = request.files.getlist("csv_files")
 
         if not path.exists('tmps/{0}'.format(db_user.id)):
             makedirs('tmps/{0}'.format(db_user.id))
@@ -368,16 +383,28 @@ def create_bot():
                 remove(filepath)
 
         if csv_files:
+            list_trainer = ListTrainer(new_chatterbot)
             for file in csv_files:
                 filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
                 file.save(filepath)
-                trainer.train(filepath)
+                conversation = []
+                with open(filepath) as csv_file:
+                    delimiter = csv_file.__next__().strip()[-1:]
+                    csv_file.seek(0)
+                    csv_reader = csv.reader(csv_file, delimiter=delimiter)
+                    for row in csv_reader:
+                        conversation.extend([row[0], row[1]])
+
+                    list_trainer.train(conversation)
+                    #update last inserted tag with filename
                 remove(filepath)
 
-        return jsonify({'message': '{} was created!'.format(name)}), 200
+        response = jsonify({'message': '{} was created!'.format(name)})
+        return response, 200
     except Exception as ex:
         print(ex)
-        return jsonify({'Error': '{}'}), 200
+        response = jsonify({'message': 'Error!'})
+        return response, 200
 
 
 @app.route('/get_response', methods=['GET'])
@@ -403,11 +430,26 @@ def get_response():
                     request.values['question'])
 
             response = jsonify({'answer': '{}'.format(response)})
-            response.headers.add("Access-Control-Allow-Credentials", "true")
+            #response.headers.add("Access-Control-Allow-Credentials", "true")
             return response, 200
         except Exception as ex:
             print(ex)
             return "Error geting the response!"
+
+
+@app.route('/bot', methods=['DELETE'])
+@jwt_required
+def delete_bot():
+    if 'bot_id' in request.args and 'user_id' in request.args:
+        try:
+            bot = Bots.get_bot_by_id(request.args['bot_id'])
+            response = jsonify({'Deleted bot': '{}'.format(bot.name)})
+            bot.delete()
+
+            return response, 200
+        except Exception as ex:
+            print(ex)
+            return "Error deleting the bot!"
 
 
 @app.route('/')
@@ -422,7 +464,18 @@ def get_user_bots():
         userBots = Bots.get_user_bots(request.values['user_id'])
 
         response = jsonify(bots=[bot.to_json() for bot in userBots])
-        response.headers.add("Access-Control-Allow-Credentials", "true")
+        return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
+
+
+@app.route('/most_asked_questions', methods=['GET'])
+@jwt_required
+def get_most_asked_questions():
+    if 'bot_id' in request.args and 'user_id' in request.args:
+        userBots = Bots.get_user_bots(request.values['user_id'])
+
+        response = jsonify(bots=[bot.to_json() for bot in userBots])
         return response, 200
     else:
         return jsonify({'message': 'No user id provided'}), 200
