@@ -17,6 +17,7 @@ from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
 import docker
 import subprocess
 import csv
+import sqlite3
 
 app = Flask(__name__)
 
@@ -252,7 +253,7 @@ def login_user():
             set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)
 
-            #response.headers.add("Access-Control-Allow-Credentials", "true")
+            # response.headers.add("Access-Control-Allow-Credentials", "true")
 
             return response, 200
         else:
@@ -338,7 +339,7 @@ def generate_tag(tag_name, bot_id):
 def create_bot():
     try:
         name = request.values['name']
-        #knowledge = loads(request.values['knowledge'])
+        # knowledge = loads(request.values['knowledge'])
         knowledge = request.values['knowledge'].split(",") if request.values['knowledge'] != '' else []
         db_user = Users.get_user_by_name(get_jwt_identity())
 
@@ -396,7 +397,7 @@ def create_bot():
                         conversation.extend([row[0], row[1]])
 
                     list_trainer.train(conversation)
-                    #update last inserted tag with filename
+                    # update last inserted tag with filename
                 remove(filepath)
 
         response = jsonify({'message': '{} was created!'.format(name)})
@@ -430,7 +431,7 @@ def get_response():
                     request.values['question'])
 
             response = jsonify({'answer': '{}'.format(response)})
-            #response.headers.add("Access-Control-Allow-Credentials", "true")
+            # response.headers.add("Access-Control-Allow-Credentials", "true")
             return response, 200
         except Exception as ex:
             print(ex)
@@ -470,12 +471,25 @@ def get_user_bots():
 
 
 @app.route('/most_asked_questions', methods=['GET'])
-@jwt_required
+# @jwt_required
 def get_most_asked_questions():
     if 'bot_id' in request.args and 'user_id' in request.args:
-        userBots = Bots.get_user_bots(request.values['user_id'])
+        userBot = Bots.get_bot_by_id(request.args['bot_id'])
 
-        response = jsonify(bots=[bot.to_json() for bot in userBots])
+        server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
+
+        conn = sqlite3.connect(server_db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT text, COUNT(*) as number_asked FROM statement GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
+        # cur.execute(
+        #     "SELECT s.text, COUNT(*) as number_asked, t.name FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
+        rows = cur.fetchall()
+
+        questions = []
+        for row in rows:
+            questions.append(row)
+
+        response = jsonify(questions)
         return response, 200
     else:
         return jsonify({'message': 'No user id provided'}), 200
