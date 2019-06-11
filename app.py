@@ -405,7 +405,7 @@ def create_bot():
         return response, 200
     except Exception as ex:
         print(ex)
-        response = jsonify({'message': 'Error!'})
+        response = jsonify({'message': str(ex)})
         return response, 200
 
 
