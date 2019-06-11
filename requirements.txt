@@ -29,3 +29,5 @@ websocket-client==0.56.0
 Werkzeug==0.15.2
 zope.interface==4.6.0
 passlib
+flask_jwt_extended
+chatterbot
