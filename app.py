@@ -21,7 +21,8 @@ import sqlite3
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://mjmhyauqsdypod:57b9341924f89ffa5a0a658714d448dd192d8fadaf7150caace887bab75ad9d4@ec2-79-125-126-205.eu-west-1.compute.amazonaws.com:5432/dk01ml16p5qig'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'a7cbba9d9acf4ec1d4c8cc4307c0c599'
 app.config['JWT_SECRET_KEY'] = 'dbdf36be0fb6bba6dcbc6de18c243195'
@@ -471,7 +472,7 @@ def get_user_bots():
 
 
 @app.route('/most_asked_questions', methods=['GET'])
-# @jwt_required
+@jwt_required
 def get_most_asked_questions():
     if 'bot_id' in request.args and 'user_id' in request.args:
         userBot = Bots.get_bot_by_id(request.args['bot_id'])
@@ -483,6 +484,52 @@ def get_most_asked_questions():
         cur.execute("SELECT text, COUNT(*) as number_asked FROM statement GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
         # cur.execute(
         #     "SELECT s.text, COUNT(*) as number_asked, t.name FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
+        rows = cur.fetchall()
+
+        questions = []
+        for row in rows:
+            questions.append(row)
+
+        response = jsonify(questions)
+        return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
+
+
+@app.route('/most_asked_topics_bot', methods=['GET'])
+@jwt_required
+def get_most_asked_topics_bot():
+    if 'bot_id' in request.args and 'user_id' in request.args:
+        userBot = Bots.get_bot_by_id(request.args['bot_id'])
+
+        server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
+
+        conn = sqlite3.connect(server_db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT t.name, COUNT(*) as number_asked FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY t.name ORDER BY Count(*) DESC LIMIT 0,5")
+        rows = cur.fetchall()
+
+        questions = []
+        for row in rows:
+            questions.append(row)
+
+        response = jsonify(questions)
+        return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
+
+
+@app.route('/bot_usage', methods=['GET'])
+@jwt_required
+def get_bot_usage():
+    if 'bot_id' in request.args and 'user_id' in request.args:
+        userBot = Bots.get_bot_by_id(request.args['bot_id'])
+
+        server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
+
+        conn = sqlite3.connect(server_db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT strftime('%m',created_at) AS month_name, COUNT(*) AS usage_stats FROM statement GROUP BY strftime('%m',created_at)")
         rows = cur.fetchall()
 
         questions = []
