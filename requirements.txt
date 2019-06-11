@@ -31,3 +31,4 @@ zope.interface==4.6.0
 passlib
 flask_jwt_extended
 chatterbot
+chatterbot_corpus
