@@ -379,7 +379,8 @@ def create_bot():
 
         if yml_files:
             for file in yml_files:
-                filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                #filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
                 file.save(filepath)
                 trainer.train(filepath)
                 remove(filepath)
@@ -387,7 +388,8 @@ def create_bot():
         if csv_files:
             list_trainer = ListTrainer(new_chatterbot)
             for file in csv_files:
-                filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                #filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
                 file.save(filepath)
                 conversation = []
                 with open(filepath) as csv_file:
