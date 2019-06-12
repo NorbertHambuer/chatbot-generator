@@ -18,6 +18,7 @@ import docker
 import subprocess
 import csv
 import sqlite3
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
 
@@ -38,6 +39,15 @@ app.config['JWT_COOKIE_CSRF_PROTECT'] = True
 
 app.config['UPLOAD_FOLDER'] = 'tmps'
 # app.config['CSRF_COOKIE_NAME '] = "XSRF-TOKEN";
+
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'chatbot.gen@gmail.com'
+app.config['MAIL_PASSWORD'] = '#chatbotgen1'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+
+mail = Mail(app)
 
 cors = CORS(app)
 
@@ -91,6 +101,10 @@ class Users(db.Model):
     @staticmethod
     def get_user_by_name(user_name):
         return Users.query.filter_by(username=user_name).first()
+
+    @staticmethod
+    def get_user_by_email(email):
+        return Users.query.filter_by(email=email).first()
 
     @staticmethod
     def generate_hash(password):
@@ -221,7 +235,8 @@ def register_user():
 
         response = jsonify({
             'message': 'User {} was created'.format(request.values['username']),
-            'user_id': new_user.id
+            'user_id': new_user.id,
+            'csrf_token': get_csrf_token(access_token)
         })
 
         set_access_cookies(response, access_token)
@@ -379,7 +394,7 @@ def create_bot():
 
         if yml_files:
             for file in yml_files:
-                #filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                # filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
                 filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
                 file.save(filepath)
                 trainer.train(filepath)
@@ -388,7 +403,7 @@ def create_bot():
         if csv_files:
             list_trainer = ListTrainer(new_chatterbot)
             for file in csv_files:
-                #filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
+                # filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
                 filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
                 file.save(filepath)
                 conversation = []
@@ -483,7 +498,8 @@ def get_most_asked_questions():
 
         conn = sqlite3.connect(server_db_path)
         cur = conn.cursor()
-        cur.execute("SELECT text, COUNT(*) as number_asked FROM statement GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
+        cur.execute(
+            "SELECT text, COUNT(*) as number_asked FROM statement GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
         # cur.execute(
         #     "SELECT s.text, COUNT(*) as number_asked, t.name FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
         rows = cur.fetchall()
@@ -508,7 +524,8 @@ def get_most_asked_topics_bot():
 
         conn = sqlite3.connect(server_db_path)
         cur = conn.cursor()
-        cur.execute("SELECT t.name, COUNT(*) as number_asked FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY t.name ORDER BY Count(*) DESC LIMIT 0,5")
+        cur.execute(
+            "SELECT t.name, COUNT(*) as number_asked FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY t.name ORDER BY Count(*) DESC LIMIT 0,5")
         rows = cur.fetchall()
 
         questions = []
@@ -517,6 +534,45 @@ def get_most_asked_topics_bot():
 
         response = jsonify(questions)
         return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
+
+
+def get_questions_asked_bot(bot_id=0, user_id=0):
+    userBot = Bots.get_bot_by_id(bot_id)
+
+    server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(user_id, userBot.name))
+
+    conn = sqlite3.connect(server_db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT COUNT(*) as questions_asked FROM statement")
+    rows = cur.fetchall()
+
+    questions = rows[0][0]
+
+    return questions
+
+
+@app.route('/user_bots_usage', methods=['GET'])
+@jwt_required
+def get_user_bots_usage():
+    if 'user_id' in request.args:
+        userBots = Bots.get_user_bots(request.values['user_id'])
+
+        usage = []
+        for bot in userBots:
+            questionsAsked = get_questions_asked_bot(bot.id, request.values['user_id'])
+            usage.append({
+                'bot': bot.name,
+                'questions': questionsAsked
+            })
+
+        print(usage)
+        response = jsonify(usage)
+        return response, 200
+
+        return jsonify(questions)
     else:
         return jsonify({'message': 'No user id provided'}), 200
 
@@ -531,7 +587,8 @@ def get_bot_usage():
 
         conn = sqlite3.connect(server_db_path)
         cur = conn.cursor()
-        cur.execute("SELECT strftime('%m',created_at) AS month_name, COUNT(*) AS usage_stats FROM statement GROUP BY strftime('%m',created_at)")
+        cur.execute(
+            "SELECT strftime('%m',created_at) AS month_name, COUNT(*) AS usage_stats FROM statement GROUP BY strftime('%m',created_at)")
         rows = cur.fetchall()
 
         questions = []
@@ -573,6 +630,15 @@ def protected_1():
 @jwt_required
 def home():
     return render_template('home/home.html')
+
+
+@app.route('/send_recovery_mail')
+def send_recovery_mail():
+    if 'email' in request.args:
+        db_user = Users.get_user_by_email(request.values['email'])
+
+        if (db_user):
+            print(db_user)
 
 
 if __name__ == '__main__':

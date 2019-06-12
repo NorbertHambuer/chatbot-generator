@@ -33,3 +33,4 @@ flask_jwt_extended
 chatterbot
 chatterbot_corpus
 psycopg2
+Flask-mail
