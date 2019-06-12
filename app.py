@@ -638,7 +638,11 @@ def send_recovery_mail():
         db_user = Users.get_user_by_email(request.values['email'])
 
         if (db_user):
-            print(db_user)
+            access_token = create_access_token(identity=db_user.username)
+            msg = Message('Hello', sender=app.config['MAIL_USERNAME'], recipients=[db_user.email])
+            msg.html = render_template('reset_password.html', access_token=access_token)
+            mail.send(msg)
+            return "Sent"
 
 
 if __name__ == '__main__':
