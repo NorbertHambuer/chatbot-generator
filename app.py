@@ -352,7 +352,7 @@ def create_bot():
         new_bot.save()
 
         tags_list = [generate_tag(tag, new_bot.id) for tag in knowledge] if knowledge else []
-        corpus_list = ['chatterbot.corpus.english.{}'.format(tag) for tag in knowledge] if knowledge else []
+        corpus_list = ['./chatterbot_english/{}.yml'.format(tag) for tag in knowledge] if knowledge else []
         Tags.insert_tags(tags_list)
 
         if not path.exists('bots_db/{0}'.format(db_user.id)):
