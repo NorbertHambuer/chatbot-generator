@@ -22,7 +22,7 @@ from flask_mail import Mail, Message
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres://mjmhyauqsdypod:57b9341924f89ffa5a0a658714d448dd192d8fadaf7150caace887bab75ad9d4@ec2-79-125-126-205.eu-west-1.compute.amazonaws.com:5432/dk01ml16p5qig'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://mjmhyauqsdypod:57b9341924f89ffa5a0a658714d448dd192d8fadaf7150caace887bab75ad9d4@ec2-79-125-126-205.eu-west-1.compute.amazonaws.com:5432/dk01ml16p5qig'
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'a7cbba9d9acf4ec1d4c8cc4307c0c599'
