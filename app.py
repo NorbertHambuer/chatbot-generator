@@ -6,7 +6,7 @@ from datetime import date
 from flask_cors import CORS, cross_origin
 from json import dumps, loads
 from passlib.hash import pbkdf2_sha256 as sha256
-from flask_jwt_extended import (JWTManager, jwt_required, create_access_token,
+from flask_jwt_extended import (JWTManager, jwt_required, create_access_token,decode_token,
                                 jwt_refresh_token_required, create_refresh_token,
                                 get_jwt_identity, set_access_cookies,
                                 set_refresh_cookies, unset_jwt_cookies, get_csrf_token)
@@ -277,6 +277,42 @@ def login_user():
     except Exception as ex:
         return str(ex)
 
+@app.route("/reset_password", methods=['POST'])
+
+def reset_password():
+    try:
+        token = decode_token(request.values['token'])
+        print(token)
+        if token:
+            current_user = Users.get_user_by_name(token['identity'])
+
+            if not current_user:
+                return jsonify({'message': 'User {} doesn\'t exist'.format(token)})
+
+
+            current_user.password = Users.generate_hash(request.values['password'])
+
+            current_user.save()
+
+            access_token = create_access_token(identity=token['identity'])
+            refresh_token = create_refresh_token(identity=token['identity'])
+
+            response = jsonify({
+                    'message': 'Logged in as {}'.format(current_user.username),
+                    'user_id': current_user.id,
+                    'csrf_token': get_csrf_token(access_token)
+            })
+
+            set_access_cookies(response, access_token)
+            set_refresh_cookies(response, refresh_token)
+
+
+
+            return response, 200
+        else:
+            return jsonify({'message': 'Wrong credentials'})
+    except Exception as ex:
+        return str(ex)
 
 @app.route('/refresh', methods=['POST'])
 @jwt_refresh_token_required
@@ -632,17 +668,22 @@ def home():
     return render_template('home/home.html')
 
 
-@app.route('/send_recovery_mail')
+@app.route('/send_recovery_mail', methods=['GET'])
 def send_recovery_mail():
     if 'email' in request.args:
         db_user = Users.get_user_by_email(request.values['email'])
 
+        print(db_user)
         if (db_user):
             access_token = create_access_token(identity=db_user.username)
             msg = Message('Hello', sender=app.config['MAIL_USERNAME'], recipients=[db_user.email])
             msg.html = render_template('reset_password.html', access_token=access_token)
             mail.send(msg)
             return "Sent"
+        else:
+            return jsonify({'message': 'No user found'}), 200
+    else:
+        return jsonify({'message': 'No email provided'}), 200
 
 
 if __name__ == '__main__':
