@@ -6,7 +6,7 @@ from datetime import date
 from flask_cors import CORS, cross_origin
 from json import dumps, loads
 from passlib.hash import pbkdf2_sha256 as sha256
-from flask_jwt_extended import (JWTManager, jwt_required, create_access_token,decode_token,
+from flask_jwt_extended import (JWTManager, jwt_required, create_access_token, decode_token,
                                 jwt_refresh_token_required, create_refresh_token,
                                 get_jwt_identity, set_access_cookies,
                                 set_refresh_cookies, unset_jwt_cookies, get_csrf_token)
@@ -277,8 +277,8 @@ def login_user():
     except Exception as ex:
         return str(ex)
 
-@app.route("/reset_password", methods=['POST'])
 
+@app.route("/reset_password", methods=['POST'])
 def reset_password():
     try:
         token = decode_token(request.values['token'])
@@ -289,7 +289,6 @@ def reset_password():
             if not current_user:
                 return jsonify({'message': 'User {} doesn\'t exist'.format(token)})
 
-
             current_user.password = Users.generate_hash(request.values['password'])
 
             current_user.save()
@@ -298,21 +297,20 @@ def reset_password():
             refresh_token = create_refresh_token(identity=token['identity'])
 
             response = jsonify({
-                    'message': 'Logged in as {}'.format(current_user.username),
-                    'user_id': current_user.id,
-                    'csrf_token': get_csrf_token(access_token)
+                'message': 'Logged in as {}'.format(current_user.username),
+                'user_id': current_user.id,
+                'csrf_token': get_csrf_token(access_token)
             })
 
             set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)
-
-
 
             return response, 200
         else:
             return jsonify({'message': 'Wrong credentials'})
     except Exception as ex:
         return str(ex)
+
 
 @app.route('/refresh', methods=['POST'])
 @jwt_refresh_token_required
@@ -386,12 +384,79 @@ def generate_tag(tag_name, bot_id):
     }
 
 
+@app.route('/bot', methods=['PUT'])
+# @jwt_required
+def update_bot():
+    try:
+        if 'bot_id' in request.args and 'user_id' in request.args:
+            bot = Bots.get_bot_by_id(request.values['bot_id'])
+
+            bot_name = bot.name if bot else ""
+
+            if not '{0}.{1}'.format(request.values['user_id'], bot_name) in active_bots:
+                chatterbot = ChatBot(bot_name, storage_adapter="chatterbot.storage.SQLStorageAdapter",
+                                     database_uri="sqlite:///bots_db/{0}/{1}.sqlite3".format(
+                                         request.values['user_id'],
+                                         bot_name))
+            else:
+                chatterbot = active_bots['{0}.{1}'.format(request.values['user_id'], bot_name)]
+
+            if 'questions_list' in request.values:
+                try:
+                    questions = request.values['questions_list'].split(";")
+                    if questions:
+                        list_trainer = ListTrainer(chatterbot)
+                        list_trainer.train(questions)
+                except Exception as ex:
+                    response_message = ex
+                    print(ex)
+            yml_files = request.files.getlist("yml_files")
+            csv_files = request.files.getlist("csv_files")
+
+            if not path.exists('tmps/{0}'.format(request.values['user_id'])):
+                makedirs('tmps/{0}'.format(request.values['user_id']))
+
+            if yml_files:
+                trainer = ChatterBotCorpusTrainer(chatterbot)
+                for file in yml_files:
+                    filepath = './tmps/{}/{}'.format(request.values['user_id'], file.filename)
+                    file.save(filepath)
+                    trainer.train(filepath)
+                    remove(filepath)
+
+            if csv_files:
+                if not list_trainer:
+                    list_trainer = ListTrainer(chatterbot)
+
+                for file in csv_files:
+                    filepath = './tmps/{}/{}'.format(request.values['user_id'], file.filename)
+                    file.save(filepath)
+                    conversation = []
+                    with open(filepath) as csv_file:
+                        delimiter = csv_file.__next__().strip()[-1:]
+                        csv_file.seek(0)
+                        csv_reader = csv.reader(csv_file, delimiter=delimiter)
+                        for row in csv_reader:
+                            conversation.extend([row[0], row[1]])
+
+                        list_trainer.train(conversation)
+                        # update last inserted tag with filename
+                    remove(filepath)
+            response = jsonify({'message': '{} was updated!'.format(bot_name)})
+            return response, 200
+    except Exception as ex:
+        print(ex)
+        response = jsonify({'message': str(ex)})
+        return response, 200
+
+
 @app.route('/create_bot', methods=['POST'])
 @jwt_required
 def create_bot():
     try:
         name = request.values['name']
         # knowledge = loads(request.values['knowledge'])
+
         knowledge = request.values['knowledge'].split(",") if request.values['knowledge'] != '' else []
         db_user = Users.get_user_by_name(get_jwt_identity())
 
@@ -430,7 +495,6 @@ def create_bot():
 
         if yml_files:
             for file in yml_files:
-                # filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
                 filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
                 file.save(filepath)
                 trainer.train(filepath)
@@ -439,7 +503,6 @@ def create_bot():
         if csv_files:
             list_trainer = ListTrainer(new_chatterbot)
             for file in csv_files:
-                # filepath = path.join(app.config['UPLOAD_FOLDER'] + '\{0}'.format(db_user.id), file.filename)
                 filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
                 file.save(filepath)
                 conversation = []
@@ -625,6 +688,30 @@ def get_bot_usage():
         cur = conn.cursor()
         cur.execute(
             "SELECT strftime('%m',created_at) AS month_name, COUNT(*) AS usage_stats FROM statement GROUP BY strftime('%m',created_at)")
+        rows = cur.fetchall()
+
+        questions = []
+        for row in rows:
+            questions.append(row)
+
+        response = jsonify(questions)
+        return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
+
+
+@app.route('/bot_questions', methods=['GET'])
+@jwt_required
+def get_bot_questions():
+    if 'bot_id' in request.args and 'user_id' in request.args:
+        userBot = Bots.get_bot_by_id(request.args['bot_id'])
+
+        server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
+
+        conn = sqlite3.connect(server_db_path)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT in_response_to as question, text as response FROM statement WHERE in_response_to IS NOT NULL and conversation = 'training'")
         rows = cur.fetchall()
 
         questions = []
