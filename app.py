@@ -510,10 +510,16 @@ def create_bot():
                     delimiter = csv_file.__next__().strip()[-1:]
                     csv_file.seek(0)
                     csv_reader = csv.reader(csv_file, delimiter=delimiter)
+                    index = 1
                     for row in csv_reader:
+                        conversation = []
                         conversation.extend([row[0], row[1]])
+                        # print(index)
+                        # print(conversation)
+                        index = index + 1
+                        list_trainer.train(conversation)
 
-                    list_trainer.train(conversation)
+                    #print(conversation)
                     # update last inserted tag with filename
                 remove(filepath)
 
