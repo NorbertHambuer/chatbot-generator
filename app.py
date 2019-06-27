@@ -142,6 +142,10 @@ class Bots(db.Model):
         return Bots.query.filter_by(id=bot_id).first()
 
     @staticmethod
+    def get_bot_by_name(bot_name, user_id):
+        return Bots.query.filter_by(name=bot_name, user_id=user_id).first()
+
+    @staticmethod
     def get_one_bot(id):
         return Bots.query.get(id)
 
@@ -588,6 +592,18 @@ def get_user_bots():
         userBots = Bots.get_user_bots(request.values['user_id'])
 
         response = jsonify(bots=[bot.to_json() for bot in userBots])
+        return response, 200
+    else:
+        return jsonify({'message': 'No user id provided'}), 200
+
+
+@app.route('/get_bot_id', methods=['GET'])
+#@jwt_required
+def get_bot_by_name():
+    if 'bot_name' in request.args and 'user_id' in request.args:
+        userBot = Bots.get_bot_by_name(request.values['bot_name'], request.values['user_id'])
+
+        response = jsonify(userBot.to_json())
         return response, 200
     else:
         return jsonify({'message': 'No user id provided'}), 200
