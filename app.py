@@ -22,7 +22,7 @@ from flask_mail import Mail, Message
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://mjmhyauqsdypod:57b9341924f89ffa5a0a658714d448dd192d8fadaf7150caace887bab75ad9d4@ec2-79-125-126-205.eu-west-1.compute.amazonaws.com:5432/dk01ml16p5qig'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://enehbwybrgerjf:b962d9377046cf51dcda6787973b471616e547b95014f3e15949d72792cc76a7@ec2-54-217-228-25.eu-west-1.compute.amazonaws.com:5432/d49aut3tog4uh2'
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'a7cbba9d9acf4ec1d4c8cc4307c0c599'
@@ -447,6 +447,9 @@ def update_bot():
                         # update last inserted tag with filename
                     remove(filepath)
             response = jsonify({'message': '{} was updated!'.format(bot_name)})
+            return response, 200
+        else:
+            response = jsonify({'message': 'Bot or user not found!'})
             return response, 200
     except Exception as ex:
         print(ex)
