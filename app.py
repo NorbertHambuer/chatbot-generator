@@ -763,14 +763,18 @@ def protected():
 @app.route('/build_docker_img', methods=['GET'])
 #@jwt_required
 def build_docker_image():
-    client = docker.from_env()
-    print(client.images)
-    new_image = client.images.build(path="./docker_template", tag='chatbot')
+    try:
+        client = docker.from_env()
+        print(client.images)
+        new_image = client.images.build(path="./docker_template", tag='chatbot')
 
-    ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
-    print(ret)
-    username = "admin sure"
-    return jsonify({'hello': 'from {}'.format(username)}), 200
+        ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
+        print(ret)
+        username = "admin sure"
+        return jsonify({'hello': 'from {}'.format(username)}), 200
+    except Exception as ex:
+        print(ex)
+        return jsonify({'hello': ex}), 200
 
 
 @app.route('/user_unsafe', methods=['GET'])
