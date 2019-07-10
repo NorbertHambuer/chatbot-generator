@@ -774,7 +774,7 @@ def build_docker_image():
         return jsonify({'hello': 'from {}'.format(username)}), 200
     except Exception as ex:
         print(ex)
-        return jsonify({'hello': ex}), 200
+        return jsonify({'hello': str(ex)}), 200
 
 
 @app.route('/user_unsafe', methods=['GET'])
