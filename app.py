@@ -766,7 +766,7 @@ def build_docker_image():
     try:
         client = docker.from_env()
         print(client.images)
-        new_image = client.images.build(path="./docker_template", tag='chatbot')
+        new_image = client.images.build(path="docker_template", tag='chatbot')
 
         ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
         print(ret)
