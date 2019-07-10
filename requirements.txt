@@ -4,9 +4,7 @@ certifi==2019.3.9
 chardet==3.0.4
 Click==7.0
 DateTime==4.3
-docker==4.0.1
-docker-py==1.10.6
-docker-pycreds==0.4.0
+docker
 Flask==1.0.2
 Flask-Cors==3.0.7
 Flask-Migrate==2.4.0
