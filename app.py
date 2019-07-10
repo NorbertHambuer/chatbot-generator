@@ -761,7 +761,7 @@ def protected():
 
 
 @app.route('/build_docker_img', methods=['GET'])
-@jwt_required
+#@jwt_required
 def build_docker_image():
     client = docker.from_env()
     new_image = client.images.build(path="./docker_template", tag='chatbot')
