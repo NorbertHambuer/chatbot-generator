@@ -768,8 +768,8 @@ def build_docker_image():
         print(client.images)
         new_image = client.images.build(path="/docker_template", tag='chatbot')
 
-        ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
-        print(ret)
+        #ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
+        #print(ret)
         username = "admin sure"
         return jsonify({'hello': 'from {}'.format(username)}), 200
     except Exception as ex:
