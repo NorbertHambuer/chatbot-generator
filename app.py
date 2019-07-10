@@ -273,8 +273,6 @@ def login_user():
             set_access_cookies(response, access_token)
             set_refresh_cookies(response, refresh_token)
 
-            # response.headers.add("Access-Control-Allow-Credentials", "true")
-
             return response, 200
         else:
             return jsonify({'message': 'Wrong credentials'})
@@ -435,15 +433,17 @@ def update_bot():
                 for file in csv_files:
                     filepath = './tmps/{}/{}'.format(request.values['user_id'], file.filename)
                     file.save(filepath)
-                    conversation = []
+
                     with open(filepath) as csv_file:
                         delimiter = csv_file.__next__().strip()[-1:]
                         csv_file.seek(0)
                         csv_reader = csv.reader(csv_file, delimiter=delimiter)
                         for row in csv_reader:
+                            conversation = []
                             conversation.extend([row[0], row[1]])
+                            list_trainer.train(conversation)
 
-                        list_trainer.train(conversation)
+
                         # update last inserted tag with filename
                     remove(filepath)
             response = jsonify({'message': '{} was updated!'.format(bot_name)})
@@ -507,7 +507,7 @@ def create_bot():
                 trainer.train(filepath)
                 remove(filepath)
 
-        if csv_files:
+        if csv_files: #Lista cu denumirea fisierelor CSV transmise prin POST
             list_trainer = ListTrainer(new_chatterbot)
             for file in csv_files:
                 filepath = './tmps/{}/{}'.format(db_user.id, file.filename)
@@ -618,16 +618,20 @@ def get_most_asked_questions():
     if 'bot_id' in request.args and 'user_id' in request.args:
         userBot = Bots.get_bot_by_id(request.args['bot_id'])
 
+        #Identificare path catre fisierul SQLlite
         server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
 
+        #Conectare la baza de date si instantierea unui cursor
         conn = sqlite3.connect(server_db_path)
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT text, COUNT(*) as number_asked FROM statement GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
-        # cur.execute(
-        #     "SELECT s.text, COUNT(*) as number_asked, t.name FROM statement s INNER JOIN tag_association ta ON ta.statement_id = s.id INNER JOIN tag t on t.id = ta.tag_id GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
-        rows = cur.fetchall()
+        cursor = conn.cursor()
 
+        #Executarea unui query
+        cursor.execute(
+            "SELECT text, COUNT(*) as number_asked FROM statement GROUP BY text ORDER BY Count(*) DESC LIMIT 0,9")
+
+        rows = cursor.fetchall()
+
+        #Crearea unui array cu resultatul interogarii
         questions = []
         for row in rows:
             questions.append(row)
