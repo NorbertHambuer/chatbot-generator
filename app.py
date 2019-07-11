@@ -14,7 +14,7 @@ from os import path, makedirs, remove
 from copy import copy
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
-import docker
+from docker import client
 import subprocess
 import csv
 import sqlite3
@@ -765,9 +765,9 @@ def protected():
 #@jwt_required
 def build_docker_image():
     try:
-        client =  docker.Client(**kwargs_from_env(assert_hostname=False))
+        client1 = client.from_env(**kwargs_from_env(assert_hostname=False))
 
-        new_image = client.images.build(path="./docker_template", tag='chatbot')
+        new_image = client1.images.build(path="./docker_template", tag='chatbot')
 
         print("asd")
         # ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
