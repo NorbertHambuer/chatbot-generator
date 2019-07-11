@@ -19,6 +19,7 @@ import subprocess
 import csv
 import sqlite3
 from flask_mail import Mail, Message
+from docker.utils import kwargs_from_env
 
 app = Flask(__name__)
 
@@ -764,7 +765,7 @@ def protected():
 #@jwt_required
 def build_docker_image():
     try:
-        client = docker.from_env()
+        client =  docker.Client(**kwargs_from_env(assert_hostname=False))
 
         new_image = client.images.build(path="./docker_template", tag='chatbot')
 
