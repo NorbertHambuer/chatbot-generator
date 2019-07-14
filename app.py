@@ -10,21 +10,23 @@ from flask_jwt_extended import (JWTManager, jwt_required, create_access_token, d
                                 jwt_refresh_token_required, create_refresh_token,
                                 get_jwt_identity, set_access_cookies,
                                 set_refresh_cookies, unset_jwt_cookies, get_csrf_token)
-from os import path, makedirs, remove
+from os import path, makedirs, remove, rename
 from copy import copy
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
-from docker import client
+import docker
 import subprocess
 import csv
 import sqlite3
 from flask_mail import Mail, Message
 from docker.utils import kwargs_from_env
+from shutil import copyfile, copy2, copy
+
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://enehbwybrgerjf:b962d9377046cf51dcda6787973b471616e547b95014f3e15949d72792cc76a7@ec2-54-217-228-25.eu-west-1.compute.amazonaws.com:5432/d49aut3tog4uh2'
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://enehbwybrgerjf:b962d9377046cf51dcda6787973b471616e547b95014f3e15949d72792cc76a7@ec2-54-217-228-25.eu-west-1.compute.amazonaws.com:5432/d49aut3tog4uh2'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'a7cbba9d9acf4ec1d4c8cc4307c0c599'
 app.config['JWT_SECRET_KEY'] = 'dbdf36be0fb6bba6dcbc6de18c243195'
@@ -765,13 +767,65 @@ def protected():
 #@jwt_required
 def build_docker_image():
     try:
-        client1 = client.from_env(**kwargs_from_env(assert_hostname=False))
+        if 'bot_id' in request.args and 'user_id' in request.args:
+            userBot = Bots.get_bot_by_id(request.args['bot_id'])
 
-        new_image = client1.images.build(path="./docker_template", tag='chatbot')
+            server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
 
-        print("asd")
-        # ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
-        # print(ret)
+            if path.isfile('./docker_console_template/db.sqlite3-shm'):
+                remove('./docker_console_template/db.sqlite3-shm')
+
+            if path.isfile('./docker_console_template/db.sqlite3-wal'):
+                remove('./docker_console_template/db.sqlite3-wal')
+
+            if path.isfile('./docker_console_template/db.sqlite3'):
+                remove('./docker_console_template/db.sqlite3')
+
+            if path.isfile('./docker_flask_template/db.sqlite3-shm'):
+                remove('./docker_flask_template/db.sqlite3-shm')
+
+            if path.isfile('./docker_flask_template/db.sqlite3-wal'):
+                remove('./docker_flask_template/db.sqlite3-wal')
+
+            if path.isfile('./docker_flask_template/db.sqlite3'):
+                remove('./docker_flask_template/db.sqlite3')
+
+            copy2(server_db_path, './docker_console_template')
+            copy2(server_db_path, './docker_flask_template')
+
+            rename("./docker_console_template/{1}.sqlite3".format(request.values['user_id'], userBot.name),"./docker_console_template/db.sqlite3")
+            rename("./docker_flask_template/{1}.sqlite3".format(request.values['user_id'], userBot.name),"./docker_flask_template/db.sqlite3")
+
+            client = docker.from_env()
+
+            tag_name = "{0}-{1}-console".format(request.values['user_id'], userBot.name).lower()
+            tag_name_flask = "{0}-{1}-flask".format(request.values['user_id'], userBot.name).lower()
+
+            client.images.build(path="./docker_console_template/", tag=tag_name)
+
+            image = client.images.get(tag_name)
+
+            client.login(username='chatterbotadmin', password='123AdminDB')
+
+            image.tag("chatterbotadmin/bots_list", tag_name)
+
+            print(client.images.push("chatterbotadmin/bots_list", tag=tag_name))
+
+            client.images.build(path="./docker_flask_template/", tag=tag_name_flask)
+
+            image = client.images.get(tag_name_flask)
+
+            image.tag("chatterbotadmin/bots_list", tag_name_flask)
+
+            print(client.images.push("chatterbotadmin/bots_list", tag=tag_name_flask))
+
+        # client1 = client.from_env(**kwargs_from_env(assert_hostname=False))
+        #
+        # new_image = client1.images.build(path="./docker_template", tag='chatbot')
+        #
+        # print("asd")
+        # # ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
+        # # print(ret)
         username = "admin sure"
         return jsonify({'hello': 'from {}'.format(username)}), 200
     except Exception as ex:
