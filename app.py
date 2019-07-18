@@ -20,13 +20,13 @@ import csv
 import sqlite3
 from flask_mail import Mail, Message
 from docker.utils import kwargs_from_env
-from shutil import copyfile, copy2, copy
+from shutil import copyfile, copy2
 
 
 app = Flask(__name__)
 
-#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://enehbwybrgerjf:b962d9377046cf51dcda6787973b471616e547b95014f3e15949d72792cc76a7@ec2-54-217-228-25.eu-west-1.compute.amazonaws.com:5432/d49aut3tog4uh2'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://enehbwybrgerjf:b962d9377046cf51dcda6787973b471616e547b95014f3e15949d72792cc76a7@ec2-54-217-228-25.eu-west-1.compute.amazonaws.com:5432/d49aut3tog4uh2'
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'postgres+psycopg2://postgres:ad@localhost:5432/chatbot-generator'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'a7cbba9d9acf4ec1d4c8cc4307c0c599'
 app.config['JWT_SECRET_KEY'] = 'dbdf36be0fb6bba6dcbc6de18c243195'
