@@ -763,74 +763,74 @@ def protected():
     return jsonify({'hello': 'from {}'.format(username)}), 200
 
 
-@app.route('/build_docker_img', methods=['GET'])
-#@jwt_required
-def build_docker_image():
-    try:
-        if 'bot_id' in request.args and 'user_id' in request.args:
-            userBot = Bots.get_bot_by_id(request.args['bot_id'])
-
-            server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
-
-            if path.isfile('./docker_console_template/db.sqlite3-shm'):
-                remove('./docker_console_template/db.sqlite3-shm')
-
-            if path.isfile('./docker_console_template/db.sqlite3-wal'):
-                remove('./docker_console_template/db.sqlite3-wal')
-
-            if path.isfile('./docker_console_template/db.sqlite3'):
-                remove('./docker_console_template/db.sqlite3')
-
-            if path.isfile('./docker_flask_template/db.sqlite3-shm'):
-                remove('./docker_flask_template/db.sqlite3-shm')
-
-            if path.isfile('./docker_flask_template/db.sqlite3-wal'):
-                remove('./docker_flask_template/db.sqlite3-wal')
-
-            if path.isfile('./docker_flask_template/db.sqlite3'):
-                remove('./docker_flask_template/db.sqlite3')
-
-            copy2(server_db_path, './docker_console_template')
-            copy2(server_db_path, './docker_flask_template')
-
-            rename("./docker_console_template/{1}.sqlite3".format(request.values['user_id'], userBot.name),"./docker_console_template/db.sqlite3")
-            rename("./docker_flask_template/{1}.sqlite3".format(request.values['user_id'], userBot.name),"./docker_flask_template/db.sqlite3")
-
-            client = docker.from_env()
-
-            tag_name = "{0}-{1}-console".format(request.values['user_id'], userBot.name).lower()
-            tag_name_flask = "{0}-{1}-flask".format(request.values['user_id'], userBot.name).lower()
-
-            client.images.build(path="./docker_console_template/", tag=tag_name)
-
-            image = client.images.get(tag_name)
-
-            client.login(username='chatterbotadmin', password='123AdminDB')
-
-            image.tag("chatterbotadmin/bots_list", tag_name)
-
-            print(client.images.push("chatterbotadmin/bots_list", tag=tag_name))
-
-            client.images.build(path="./docker_flask_template/", tag=tag_name_flask)
-
-            image = client.images.get(tag_name_flask)
-
-            image.tag("chatterbotadmin/bots_list", tag_name_flask)
-
-            print(client.images.push("chatterbotadmin/bots_list", tag=tag_name_flask))
-
-        # client1 = client.from_env(**kwargs_from_env(assert_hostname=False))
-        #
-        # new_image = client1.images.build(path="./docker_template", tag='chatbot')
-        #
-        # print("asd")
-        # # ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
-        # # print(ret)
-        username = "admin sure"
-        return jsonify({'hello': 'from {}'.format(username)}), 200
-    except Exception as ex:
-        print(ex)
-        return jsonify({'hello': str(ex)}), 200
+# @app.route('/build_docker_img', methods=['GET'])
+# #@jwt_required
+# def build_docker_image():
+#     try:
+#         if 'bot_id' in request.args and 'user_id' in request.args:
+#             userBot = Bots.get_bot_by_id(request.args['bot_id'])
+#
+#             server_db_path = path.join("bots_db/{0}/{1}.sqlite3".format(request.values['user_id'], userBot.name))
+#
+#             if path.isfile('./docker_console_template/db.sqlite3-shm'):
+#                 remove('./docker_console_template/db.sqlite3-shm')
+#
+#             if path.isfile('./docker_console_template/db.sqlite3-wal'):
+#                 remove('./docker_console_template/db.sqlite3-wal')
+#
+#             if path.isfile('./docker_console_template/db.sqlite3'):
+#                 remove('./docker_console_template/db.sqlite3')
+#
+#             if path.isfile('./docker_flask_template/db.sqlite3-shm'):
+#                 remove('./docker_flask_template/db.sqlite3-shm')
+#
+#             if path.isfile('./docker_flask_template/db.sqlite3-wal'):
+#                 remove('./docker_flask_template/db.sqlite3-wal')
+#
+#             if path.isfile('./docker_flask_template/db.sqlite3'):
+#                 remove('./docker_flask_template/db.sqlite3')
+#
+#             copy2(server_db_path, './docker_console_template')
+#             copy2(server_db_path, './docker_flask_template')
+#
+#             rename("./docker_console_template/{1}.sqlite3".format(request.values['user_id'], userBot.name),"./docker_console_template/db.sqlite3")
+#             rename("./docker_flask_template/{1}.sqlite3".format(request.values['user_id'], userBot.name),"./docker_flask_template/db.sqlite3")
+#
+#             client = docker.from_env()
+#
+#             tag_name = "{0}-{1}-console".format(request.values['user_id'], userBot.name).lower()
+#             tag_name_flask = "{0}-{1}-flask".format(request.values['user_id'], userBot.name).lower()
+#
+#             client.images.build(path="./docker_console_template/", tag=tag_name)
+#
+#             image = client.images.get(tag_name)
+#
+#             client.login(username='chatterbotadmin', password='123AdminDB')
+#
+#             image.tag("chatterbotadmin/bots_list", tag_name)
+#
+#             print(client.images.push("chatterbotadmin/bots_list", tag=tag_name))
+#
+#             client.images.build(path="./docker_flask_template/", tag=tag_name_flask)
+#
+#             image = client.images.get(tag_name_flask)
+#
+#             image.tag("chatterbotadmin/bots_list", tag_name_flask)
+#
+#             print(client.images.push("chatterbotadmin/bots_list", tag=tag_name_flask))
+#
+#         # client1 = client.from_env(**kwargs_from_env(assert_hostname=False))
+#         #
+#         # new_image = client1.images.build(path="./docker_template", tag='chatbot')
+#         #
+#         # print("asd")
+#         # # ret = subprocess.run(['docker', 'save', '-o', './chatbot2.tar', 'chatbot'])
+#         # # print(ret)
+#         username = "admin sure"
+#         return jsonify({'hello': 'from {}'.format(username)}), 200
+#     except Exception as ex:
+#         print(ex)
+#         return jsonify({'hello': str(ex)}), 200
 
 
 @app.route('/user_unsafe', methods=['GET'])
