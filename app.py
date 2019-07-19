@@ -14,13 +14,9 @@ from os import path, makedirs, remove, rename
 from copy import copy
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer, ListTrainer
-import docker
-import subprocess
 import csv
 import sqlite3
 from flask_mail import Mail, Message
-from docker.utils import kwargs_from_env
-from shutil import copyfile, copy2
 
 
 app = Flask(__name__)
