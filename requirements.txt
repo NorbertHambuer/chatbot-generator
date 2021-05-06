@@ -6,7 +6,7 @@ Click==7.0
 DateTime==4.3
 docker
 Flask==1.0.2
-Flask-Cors==3.0.7
+Flask-Cors==3.0.9
 Flask-Migrate==2.4.0
 Flask-Script==2.0.6
 Flask-SQLAlchemy==2.4.0
